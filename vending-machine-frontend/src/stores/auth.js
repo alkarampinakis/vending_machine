@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import api from '../api/axios'
 
 export const useAuthStore = defineStore('auth', () => {
-  const user  = ref(null)
+  const user  = ref(JSON.parse(localStorage.getItem('user') || 'null'))
   const token = ref(localStorage.getItem('token') || null)
   const error = ref(null)
   const loading = ref(false)
@@ -18,13 +18,19 @@ export const useAuthStore = defineStore('auth', () => {
     else   localStorage.removeItem('token')
   }
 
+  function setUser(u) {
+    user.value = u
+    if (u) localStorage.setItem('user', JSON.stringify(u))
+    else   localStorage.removeItem('user')
+  }
+
   async function login(credentials) {
     loading.value = true
     error.value   = null
     try {
       const { data } = await api.post('/login', credentials)
       setToken(data.token)
-      user.value = data.user
+      setUser(data.user)
       return { success: true }
     } catch (e) {
       error.value = e.response?.data?.message || 'Login failed.'
@@ -51,30 +57,32 @@ export const useAuthStore = defineStore('auth', () => {
   async function logout() {
     try { await api.post('/logout') } catch {}
     setToken(null)
-    user.value = null
+    setUser(null)
   }
 
   async function logoutAll() {
     try { await api.post('/logout/all') } catch {}
     setToken(null)
-    user.value = null
+    setUser(null)
   }
 
   async function fetchUser() {
     if (!token.value || !user.value?.id) return
     try {
       const { data } = await api.get(`/user/${user.value.id}`)
-      user.value = data
+      setUser(data)
     } catch {
       setToken(null)
-      user.value = null
+      setUser(null)
     }
   }
 
   function updateDeposit(amount) {
-    if (user.value) user.value.deposit = amount
+    if (user.value) {
+      setUser({ ...user.value, deposit: amount })
+    }
   }
 
   return { user, token, error, loading, isAuthenticated, isBuyer, isSeller,
-           login, register, logout, logoutAll, fetchUser, updateDeposit }
+           login, register, logout, logoutAll, fetchUser, updateDeposit, setUser }
 })
